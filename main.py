@@ -1,9 +1,11 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import sqlite3
 import os
+import re
+from urllib.parse import unquote
 
 app = FastAPI()
 
@@ -19,6 +21,21 @@ def truncate_text(text, length=100):
     
 # Register the filter with Jinja2
 templates.env.filters["truncate_text"] = truncate_text
+
+# Location validation pattern - prohibit characters that would break URLs
+INVALID_LOCATION_PATTERN = r'[/\\?%*:|"<>\n\r\t]'
+
+def validate_location(value: str) -> str:
+    """
+    Validate that a location name doesn't contain characters that would
+    break the URL structure or create security issues
+    """
+    if value and re.search(INVALID_LOCATION_PATTERN, value):
+        raise HTTPException(
+            status_code=400, 
+            detail="Location fields cannot contain the following characters: / \\ ? % * : | \" < >"
+        )
+    return value
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -135,6 +152,11 @@ def add_item(
     quantity: int = Form(1),
     url: str = Form("")
 ):
+    # Validate location fields
+    area = validate_location(area)
+    container = validate_location(container)
+    bin = validate_location(bin)
+    
     conn = sqlite3.connect(db_path)
     conn.execute("""
         INSERT INTO items (name, description, area, container, bin, quantity, url)
@@ -151,79 +173,46 @@ def search(request: Request, q: str = ""):
     match_info = {}
     
     if q:
-        # Prepare the search query - wrap each term in quotes to handle special characters
-        search_terms = q.split()
-        # Prepend each term with the * wildcard and wrap in quotes for phrase matching
-        quoted_terms = [f'"{term}"' for term in search_terms]
-        # Join all terms with OR operator for any-term matching
-        search_query = " OR ".join(quoted_terms)
+        q_lower = q.lower()
+        like_pattern = f"%{q_lower}%"
         
-        try:
-            # Perform the search query with the properly formatted search string
-            results = conn.execute("""
-                SELECT i.* FROM items i
-                WHERE i.id IN (
-                    SELECT rowid FROM item_fts
-                    WHERE item_fts MATCH ?
-                )
-            """, (search_query,)).fetchall()
+        # Use case-insensitive LIKE query with LOWER() function
+        results = conn.execute("""
+            SELECT * FROM items
+            WHERE LOWER(name) LIKE ? 
+               OR LOWER(description) LIKE ? 
+               OR LOWER(area) LIKE ? 
+               OR LOWER(container) LIKE ? 
+               OR LOWER(bin) LIKE ?
+        """, (like_pattern, like_pattern, like_pattern, like_pattern, like_pattern)).fetchall()
+        
+        # For each result, determine which fields matched
+        for item in results:
+            item_id = item[0]
+            matched_fields = []
             
-            # For each result, determine which fields matched
-            for item in results:
-                item_id = item[0]
-                matched_fields = []
-                
-                # Check each field for matches
-                fields = ["name", "description", "area", "container", "bin"]
-                for field in fields:
-                    try:
-                        match_count = conn.execute(f"""
-                            SELECT COUNT(*) FROM item_fts
-                            WHERE rowid = ? AND {field} MATCH ?
-                        """, (item_id, search_query)).fetchone()[0]
-                        
-                        if match_count > 0:
-                            matched_fields.append(field)
-                    except sqlite3.Error:
-                        # Skip if there's an error in this field
-                        continue
-                
-                match_info[item_id] = matched_fields
-        except sqlite3.Error as e:
-            # If there's an error with the FTS query, fall back to a simpler LIKE query
-            print(f"FTS search error: {e}")
-            like_pattern = f"%{q}%"
-            results = conn.execute("""
-                SELECT * FROM items
-                WHERE name LIKE ? OR description LIKE ? OR area LIKE ? OR container LIKE ? OR bin LIKE ?
-            """, (like_pattern, like_pattern, like_pattern, like_pattern, like_pattern)).fetchall()
+            # Check each field for the search term (case-insensitive)
+            if item[1] and q_lower in item[1].lower():  # name
+                matched_fields.append("name")
+            if item[2] and item[2] and q_lower in item[2].lower():  # description
+                matched_fields.append("description")
+            if item[3] and item[3] and q_lower in item[3].lower():  # area
+                matched_fields.append("area")
+            if item[4] and item[4] and q_lower in item[4].lower():  # container
+                matched_fields.append("container")
+            if item[5] and item[5] and q_lower in item[5].lower():  # bin
+                matched_fields.append("bin")
             
-            # For LIKE queries, determine which fields matched
-            for item in results:
-                item_id = item[0]
-                matched_fields = []
-                
-                # Check each field for the search term
-                if q.lower() in item[1].lower():  # name
-                    matched_fields.append("name")
-                if item[2] and q.lower() in item[2].lower():  # description
-                    matched_fields.append("description")
-                if item[3] and q.lower() in item[3].lower():  # area
-                    matched_fields.append("area")
-                if item[4] and q.lower() in item[4].lower():  # container
-                    matched_fields.append("container")
-                if item[5] and q.lower() in item[5].lower():  # bin
-                    matched_fields.append("bin")
-                
-                match_info[item_id] = matched_fields
+            match_info[item_id] = matched_fields
     
     conn.close()
     return templates.TemplateResponse("search.html", {
         "request": request, 
-        "results": results, 
+        "items": results, 
         "query": q,
         "match_info": match_info
     })
+
 
 @app.get("/api/search-suggestions")
 def get_search_suggestions():
@@ -329,3 +318,151 @@ def delete_item(item_id: int):
     conn.close()
     
     return RedirectResponse(url="/", status_code=303)
+
+# New location routes to handle area, container, and bin navigation
+@app.get("/location/{area}", response_class=HTMLResponse)
+def view_area(request: Request, area: str):
+    # URL decode the area parameter
+    area_decoded = unquote(area)
+    
+    conn = sqlite3.connect(db_path)
+    
+    # Get items in this area using case-insensitive comparison
+    items = conn.execute("""
+        SELECT * FROM items 
+        WHERE LOWER(area) = LOWER(?) 
+        ORDER BY container, bin, name
+    """, (area_decoded,)).fetchall()
+    
+    # Get stats for this area
+    total_items = len(items)
+    total_quantity = sum(item[6] or 0 for item in items)
+    
+    # Get unique containers in this area for sub-location navigation
+    containers_query = conn.execute("""
+        SELECT container, COUNT(*) as count 
+        FROM items 
+        WHERE LOWER(area) = LOWER(?) AND container != '' 
+        GROUP BY container 
+        ORDER BY container
+    """, (area_decoded,)).fetchall()
+    
+    # Format container data for template
+    sub_locations = []
+    for container, count in containers_query:
+        sub_locations.append({
+            "name": container,
+            "count": count,
+            "url": f"/location/{area}/{container}"
+        })
+    
+    conn.close()
+    
+    stats = {
+        "total_items": total_items,
+        "total_quantity": total_quantity,
+        "unique_locations": len(sub_locations)
+    }
+    
+    return templates.TemplateResponse("location.html", {
+        "request": request,
+        "title": f"Area: {area_decoded}",
+        "area": area_decoded,
+        "items": items,
+        "sub_locations": sub_locations,
+        "stats": stats
+    })
+
+@app.get("/location/{area}/{container}", response_class=HTMLResponse)
+def view_container(request: Request, area: str, container: str):
+    # URL decode parameters
+    area_decoded = unquote(area)
+    container_decoded = unquote(container)
+    
+    conn = sqlite3.connect(db_path)
+    
+    # Get items in this container using case-insensitive comparison
+    items = conn.execute("""
+        SELECT * FROM items 
+        WHERE LOWER(area) = LOWER(?) AND LOWER(container) = LOWER(?) 
+        ORDER BY bin, name
+    """, (area_decoded, container_decoded)).fetchall()
+    
+    # Get stats for this container
+    total_items = len(items)
+    total_quantity = sum(item[6] or 0 for item in items)
+    
+    # Get unique bins in this container for sub-location navigation
+    bins_query = conn.execute("""
+        SELECT bin, COUNT(*) as count 
+        FROM items 
+        WHERE LOWER(area) = LOWER(?) AND LOWER(container) = LOWER(?) AND bin != '' 
+        GROUP BY bin 
+        ORDER BY bin
+    """, (area_decoded, container_decoded)).fetchall()
+    
+    # Format bin data for template
+    sub_locations = []
+    for bin_name, count in bins_query:
+        sub_locations.append({
+            "name": bin_name,
+            "count": count,
+            "url": f"/location/{area}/{container}/{bin_name}"
+        })
+    
+    conn.close()
+    
+    stats = {
+        "total_items": total_items,
+        "total_quantity": total_quantity,
+        "unique_locations": len(sub_locations)
+    }
+    
+    return templates.TemplateResponse("location.html", {
+        "request": request,
+        "title": f"Container: {container_decoded}",
+        "area": area_decoded,
+        "container": container_decoded,
+        "items": items,
+        "sub_locations": sub_locations,
+        "stats": stats
+    })
+
+@app.get("/location/{area}/{container}/{bin}", response_class=HTMLResponse)
+def view_bin(request: Request, area: str, container: str, bin: str):
+    # URL decode parameters
+    area_decoded = unquote(area)
+    container_decoded = unquote(container)
+    bin_decoded = unquote(bin)
+    
+    conn = sqlite3.connect(db_path)
+    
+    # Get items in this bin using case-insensitive comparison
+    items = conn.execute("""
+        SELECT * FROM items 
+        WHERE LOWER(area) = LOWER(?) AND LOWER(container) = LOWER(?) AND LOWER(bin) = LOWER(?) 
+        ORDER BY name
+    """, (area_decoded, container_decoded, bin_decoded)).fetchall()
+    
+    # Get stats for this bin
+    total_items = len(items)
+    total_quantity = sum(item[6] or 0 for item in items)
+    
+    conn.close()
+    
+    stats = {
+        "total_items": total_items,
+        "total_quantity": total_quantity,
+        "unique_locations": 0  # No sub-locations for bins
+    }
+    
+    return templates.TemplateResponse("location.html", {
+        "request": request,
+        "title": f"Bin: {bin_decoded}",
+        "area": area_decoded,
+        "container": container_decoded,
+        "bin": bin_decoded,
+        "items": items,
+        "sub_locations": [],  # No sub-locations for bins
+        "stats": stats
+    })
