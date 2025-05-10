@@ -1,9 +1,13 @@
 # Binventory
 
+![Binventory Logo](https://raw.githubusercontent.com/downtime-inventory/binventory/main/docs/BinventoryIcon.png)
+
 A simple inventory management system built with FastAPI and SQLite, designed for easy deployment using Docker.
 
 > [!WARNING] 
 > This entire project has been "vibe coded" and provides no gurantees of backward or forward compatibility. 
+
+[Binventory Homage](https://raw.githubusercontent.com/downtime-inventory/binventory/main/docs/BinventoryHomePage.png)
 
 ## Features
 
@@ -12,6 +16,9 @@ A simple inventory management system built with FastAPI and SQLite, designed for
 - Dark mode support
 - URL linking for items
 - Mobile-friendly responsive design
+- Container inventory pages
+
+[Binventory Container Tracking Page](https://raw.githubusercontent.com/downtime-inventory/binventory/main/docs/BinventoryContainersPage.png)
 
 ## Deployment with Docker
 
