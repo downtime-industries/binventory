@@ -319,6 +319,23 @@ def delete_item(item_id: int):
     
     return RedirectResponse(url="/", status_code=303)
 
+# New API endpoint for delete.js to use 
+@app.delete("/api/delete/{item_id}")
+async def api_delete_item(item_id: int):
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
+        deleted = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+        
+        if not deleted:
+            return {"success": False, "detail": "Item not found"}, 404
+            
+        return {"success": True, "message": "Item deleted successfully"}
+    except Exception as e:
+        return {"success": False, "detail": str(e)}, 500
+
 # New location routes to handle area, container, and bin navigation
 @app.get("/location/{area}", response_class=HTMLResponse)
 def view_area(request: Request, area: str):

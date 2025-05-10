@@ -156,7 +156,7 @@ function setupAutocomplete(inputElement, items) {
 // Modal functions for delete confirmation
 function confirmDelete(itemId, itemName) {
     const modal = document.getElementById('deleteModal');
-    const message = document.getElementById('deleteConfirmMessage');
+    const message = document.getElementById('delete-message');
     const deleteForm = document.getElementById('deleteForm');
     
     message.textContent = `Are you sure you want to completely delete the entry for "${itemName}"?`;
@@ -165,7 +165,7 @@ function confirmDelete(itemId, itemName) {
     modal.classList.remove('hidden');
 }
 
-function closeModal() {
+function closeDeleteModal() {
     const modal = document.getElementById('deleteModal');
     modal.classList.add('hidden');
 }

@@ -1,7 +1,7 @@
 {% if items %}
 <ul class="divide-y divide-gray-200 dark:divide-gray-700">
     {% for item in items %}
-    <li class="py-4">
+    <li class="py-4" data-item-id="{{ item[0] }}">
         <div class="flex flex-col sm:flex-row sm:justify-between px-4">
             <div>
                 <div class="flex items-center">

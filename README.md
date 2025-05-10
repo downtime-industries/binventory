@@ -1,6 +1,9 @@
 # Binventory
 
-A simple inventory management system built with FastAPI.
+A simple inventory management system built with FastAPI and SQLite, designed for easy deployment using Docker.
+
+> [!WARNING] 
+> This entire project has been "vibe coded" and provides no gurantees of backward or forward compatibility. 
 
 ## Features
 
