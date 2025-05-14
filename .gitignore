@@ -1,2 +1,6 @@
 __pycache__/
 data/
+binventory.db
+*.pyc
+.env
+node_modules/
