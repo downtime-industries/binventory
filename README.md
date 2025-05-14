@@ -32,7 +32,6 @@ A simple inventory management system built with FastAPI and SQLite, designed for
 1. Clone this repository:
    ```
    git clone <repository-url>
-   cd binventory
    ```
 
 2. Deploy with Docker Compose:

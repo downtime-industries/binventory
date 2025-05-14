@@ -2,16 +2,13 @@ version: '3'
 
 services:
   binventory:
-    build: .
-    container_name: binventory
-    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - binventory-data:/app/data
     environment:
-      - TZ=UTC
-
-volumes:
-  binventory-data:
-    name: binventory-data
+      - FRONTEND_URL=http://localhost:8000  # Updated to use the same URL
+      - STATIC_FILES_DIR=/app/static
+    volumes:
+      - ./binventory.db:/app/binventory.db  # Persist database

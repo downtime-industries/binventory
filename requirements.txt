@@ -1,4 +1,12 @@
 fastapi
 uvicorn
+sqlalchemy
+pydantic
 python-multipart
-jinja2>=3.0.0
+python-jose
+httpx
+authlib
+itsdangerous
+databases
+aiosqlite
+python-dotenv

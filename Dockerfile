@@ -1,23 +1,36 @@
-FROM python:3.13-slim
+FROM node:18-alpine AS frontend-builder
+
+# Set working directory for frontend build
+WORKDIR /app/frontend
+
+# Copy frontend source files
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+# Backend build stage
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy requirements first for better caching
+# Copy Python requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
-COPY . .
+# Copy backend code
+COPY backend/ /app/backend/
 
-# Create directories needed for persistence
-RUN mkdir -p /app/data
+# Copy compiled frontend from previous stage
+COPY --from=frontend-builder /app/frontend/dist /app/static
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV STATIC_FILES_DIR=/app/static
 
-# Expose the application port
+# Expose port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
