@@ -48,18 +48,23 @@ const AutocompleteInput = ({
         }
         
         // Otherwise convert to string as best we can
-        return String(suggestion);
+        try {
+          return String(suggestion);
+        } catch (e) {
+          console.error("Failed to convert suggestion to string:", suggestion);
+          return "";
+        }
       });
     
     // Filter suggestions based on input
     if (value) {
       const filtered = stringifiedSuggestions.filter(
-        (suggestion) => suggestion.toLowerCase().includes(value.toLowerCase())
+        (suggestion) => suggestion && suggestion.toLowerCase().includes(value.toLowerCase())
       );
       setFilteredSuggestions(filtered.slice(0, 10)); // Limit to top 10 results
     } else if (showSuggestions) {
       // When input is empty but dropdown is focused, show all suggestions
-      setFilteredSuggestions(stringifiedSuggestions.slice(0, 10)); // Limit to top 10 results
+      setFilteredSuggestions(stringifiedSuggestions.filter(s => s).slice(0, 10)); // Limit to top 10 results
     } else {
       setFilteredSuggestions([]);
     }
@@ -178,7 +183,7 @@ const AutocompleteInput = ({
                     : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
-                {suggestion}
+                {typeof suggestion === 'string' ? suggestion : ''}
               </li>
             ))}
           </ul>

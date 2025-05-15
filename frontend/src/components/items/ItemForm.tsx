@@ -165,7 +165,7 @@ const ItemForm = ({ initialData, onSubmit, onCancel }: ItemFormProps) => {
           value={formData.area}
           onChange={handleChange}
           onSelect={(value) => setFormData(prev => ({ ...prev, area: value }))}
-          suggestions={areas}
+          suggestions={areas.map(a => typeof a === 'object' && a !== null ? a.name : a)}
           placeholder="Select or enter area"
           nextFieldId="container"
         />
@@ -177,7 +177,7 @@ const ItemForm = ({ initialData, onSubmit, onCancel }: ItemFormProps) => {
           value={formData.container}
           onChange={handleChange}
           onSelect={(value) => setFormData(prev => ({ ...prev, container: value }))}
-          suggestions={containers}
+          suggestions={containers.map(c => typeof c === 'object' && c !== null ? c.name : c)}
           placeholder="Select or enter container"
           nextFieldId="bin"
         />
@@ -189,7 +189,7 @@ const ItemForm = ({ initialData, onSubmit, onCancel }: ItemFormProps) => {
           value={formData.bin}
           onChange={handleChange}
           onSelect={(value) => setFormData(prev => ({ ...prev, bin: value }))}
-          suggestions={bins}
+          suggestions={bins.map(b => typeof b === 'object' && b !== null ? b.name : b)}
           placeholder="Select or enter bin"
           nextFieldId="quantity"
         />
