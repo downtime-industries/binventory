@@ -8,7 +8,11 @@ from pydantic import BaseModel
 from typing import Optional
 import os
 import secrets
+from dotenv import load_dotenv
 from ..schemas import Token, TokenData
+
+# Load environment variables from .env file at the root of the project
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), '.env'))
 
 # Config
 SECRET_KEY = os.environ.get("SECRET_KEY", secrets.token_urlsafe(32))
@@ -93,6 +97,7 @@ async def auth_callback(request: Request):
     )
     
     # Get frontend URL from environment or use default
+    # In Docker, use the same URL as the backend
     frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
     
     # Redirect to frontend with the token

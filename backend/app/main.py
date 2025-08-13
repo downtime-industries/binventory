@@ -55,7 +55,7 @@ if os.path.exists(static_files_dir):
             raise HTTPException(status_code=404, detail="Resource not found")
 
 @app.on_event("startup")
-async def on_startup():
+async def startup():
     # Create tables on startup
     await create_db_and_tables()
 
