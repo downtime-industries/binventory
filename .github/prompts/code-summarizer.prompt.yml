@@ -1,0 +1,25 @@
+name: Code Summarize
+description: Summarizes input code completely
+model: gpt-4o-mini
+modelParameters:
+  temperature: 0.5
+messages:
+  - role: system
+    content: You are a code summarizer. Your only job is to summarize code given to you.
+  - role: user
+    content: |
+      Summarize the given code. Make sure you explain language specific 
+      syntax that may not be obvious to a beginner. 
+      <text>
+      {{input}}
+      </text>
+testData:
+  - input: |
+      #/bin/sh
+      # This script prints a message to the console
+      echo "Hello, World!"
+    expected: This script prints "Hello, World!" to the console.
+evaluators:
+  - name: Output should contain 'Hello World'
+    string:
+      contains: 'Hello, World!'
